@@ -3,7 +3,11 @@ package winterProject4_imageProcessing;
 import java.awt.*;
 import java.awt.event.*;
 import java.awt.image.BufferedImage;
+import java.awt.image.ColorModel;
+import java.awt.image.WritableRaster;
 import java.io.*;
+import java.util.Stack;
+
 import javax.imageio.ImageIO;
 import javax.swing.*;
 
@@ -27,9 +31,6 @@ public class Main {
 	 5. save/load 
 	 */
 	
-	//누르고있는동안만 원본 보여주기? 원본패널을 만들어놓고 마우스이벤트에 따라 visibility 조절하자 
-	
-	
 	static JFrame frame;
 	static JPanel BB; //블랙보드라는 뜻임ㅋㅋ 
 	static JPanel canvas; //사진 띄우고 보여줄 영역 
@@ -42,7 +43,6 @@ public class Main {
 	static JFrame sliderTab; //ㅠㅠ밝기랑 이것저것 조절할때 추가로 뜰 창... 
 	
 	static boolean on = false; //이미지 편집 시작 (버튼작동 트리거)
-	
 	
 	//기본프레임과 툴바 
 	public static void makeFrame() {
@@ -72,15 +72,12 @@ public class Main {
 		BB.add(canvas);
 		
 		
-		
 		//파일열기
 		JButton getFile = new JButton("Import image");
 		getFile.setBackground(Color.LIGHT_GRAY);
 		getFile.setFont(font);
 		getFile.setBounds(30, 40, 225, 50);
 		tools.add(getFile);
-		
-		
 		getFile.addActionListener(event->{
 			
 			File selectedFile;
@@ -93,6 +90,9 @@ public class Main {
 				System.out.println("성공적으로 불러왔습니다");
 				Images.loadImage(selectedFile); //오리진이미지 저장하고 띄워주는 버튼추가 
 				on = true; //파일열렸어용~ 알려주는놈(버튼작동트리거)
+				Images.undoStack.clear();
+				Images.redoStack.clear();
+				
 			}else {
 				System.out.println("파일 안열림");
 			}
@@ -101,7 +101,7 @@ public class Main {
 		
 		//원본보기(버튼 누르고있는 동안만 원본 사진 보이게 하기 )
 		JButton viewOrigin = new JButton("View origin");
-		viewOrigin.setBackground(Color.GRAY);
+		viewOrigin.setBackground(Color.LIGHT_GRAY);
 		viewOrigin.setBounds(30, 110, 100, 50);
 		tools.add(viewOrigin);
 		viewOrigin.addMouseListener(new MouseAdapter(){
@@ -125,15 +125,24 @@ public class Main {
 		backToOrigin.addMouseListener(new MouseAdapter(){
 			public void mousePressed(MouseEvent e) {
 				if(on) {
-					Images.backUpIMG = Images.outputIMG; //백업
+					Images.backUp();
+				}
+			}
+			public void mouseReleased(MouseEvent e) {
+				if(on) {
+					//Images.EDITED = Images.copy(Images.ORIGIN);
+					Images.getMemories(Images.ORIGIN);
+					Images.outputIMG = Images.inputIMG;
+					Images.editIMG();
+					//Images.F5();
 				}
 			}
 		});
+		
 		backToOrigin.addActionListener(event->{
 			if(on) {
-				Images.outputIMG = Images.inputIMG; 
-				Images.savedIMG = Images.inputIMG; 
-				Images.editIMG();
+				//Images.EDITED = Images.copy(Images.ORIGIN);
+				//Images.F5();
 			}
 		});
 
@@ -146,13 +155,14 @@ public class Main {
 		tools.add(B);
 		B.addActionListener(event->{
 			if(on) {
+				Images.SAVED = Images.copy(Images.EDITED);
 				makeSlider('B');
 			}
 		});
 		B.addMouseListener(new MouseAdapter(){
 			public void mousePressed(MouseEvent e) {
 				if(on) {
-					Images.backUpIMG = Images.outputIMG; 
+					Images.backUp();
 				}
 			}
 		});
@@ -165,13 +175,14 @@ public class Main {
 		tools.add(S);
 		S.addActionListener(event->{
 			if(on) {
+				Images.SAVED = Images.copy(Images.EDITED);
 				makeSlider('S');
 			}
 		});
 		S.addMouseListener(new MouseAdapter(){
 			public void mousePressed(MouseEvent e) {
 				if(on) {
-					Images.backUpIMG = Images.outputIMG; 
+					Images.backUp();
 				}
 			}
 		});
@@ -184,13 +195,14 @@ public class Main {
 		tools.add(C);
 		C.addActionListener(event->{
 			if(on) {
+				Images.SAVED = Images.copy(Images.EDITED);
 				makeSlider('C');
 			}
 		});
 		C.addMouseListener(new MouseAdapter(){
 			public void mousePressed(MouseEvent e) {
 				if(on) {
-					Images.backUpIMG = Images.outputIMG; 
+					Images.backUp();
 				}
 			}
 		});
@@ -205,13 +217,12 @@ public class Main {
 		mono.addActionListener(event->{ //기능
 			if(on) {
 				Images.changeToMono();
-				Images.apply();
 			}
 		});
 		mono.addMouseListener(new MouseAdapter(){ //백업처리
 			public void mousePressed(MouseEvent e) {
 				if(on) {
-					Images.backUpIMG = Images.outputIMG;
+					Images.backUp();
 				}
 			}
 		});
@@ -226,13 +237,12 @@ public class Main {
 		revers.addActionListener(event->{ //기능
 			if(on) {
 				Images.changeToRevers();
-				Images.apply();
 			}
 		});
 		revers.addMouseListener(new MouseAdapter(){ //백업처리
 			public void mousePressed(MouseEvent e) {
 				if(on) {
-					Images.backUpIMG = Images.outputIMG;
+					Images.backUp();
 				}
 			}
 		});
@@ -245,12 +255,9 @@ public class Main {
 		undo.setFont(font);
 		undo.setBounds(30, 500, 110, 50);
 		tools.add(undo);
-		
 		undo.addActionListener(event->{
 			if(on) {
-				Images.outputIMG = Images.backUpIMG;
-				Images.apply();
-				Images.editIMG();
+				Images.undo();
 			}
 		});
 		
@@ -260,12 +267,10 @@ public class Main {
 		redo.setFont(font);
 		redo.setBounds(145, 500, 110, 50);
 		tools.add(redo);
-		
 		redo.addActionListener(event->{
-			if(on) {
-				Images.outputIMG = Images.backUpIMG;
-				Images.apply();
-				Images.editIMG();
+			//
+			if(on && !Images.redoStack.empty() ) {
+				Images.redo(); //앞으로
 			}
 		});
 		
@@ -292,7 +297,6 @@ public class Main {
 				         System.out.println("저장되었습니다");
 			         }catch(Exception e){
 			            e.printStackTrace();
-			            System.out.println("저장에 실패했습니다.");
 			         }    
 				}else {
 					System.out.println("저장에 실패했습니다.");
@@ -304,8 +308,6 @@ public class Main {
 		info.setForeground(Color.white);
 		info.setBounds(50, 650, 225, 30);
 		tools.add(info);
-		
-		
 		
 		frame.setVisible(true); //쨘 
 		
@@ -388,12 +390,8 @@ public class Main {
 		confirm.setFont(font);
 		confirm.setBounds(40, 105, 180, 40);
 		sliderTab.add(confirm);
-		
+
 		confirm.addActionListener(event->{
-			Images.apply();
-			B.setValue(0);
-			S.setValue(0);
-			C.setValue(0);
 			sliderTab.dispose(); //창닫기 
 		});
 
@@ -432,8 +430,6 @@ public class Main {
 	public static void main(String[] args) {
 		System.out.println("Hello world!");
 		makeFrame();
-		
-		
 	}
 
 }
@@ -442,7 +438,11 @@ public class Main {
 // 이미지 처리하기 
 class Images {
 	
+	static Stack<BufferedImage> undoStack = new Stack<BufferedImage>(); //와! 
+	static Stack<BufferedImage> redoStack = new Stack<BufferedImage>();
+	
 	static BufferedImage ORIGIN; //원본
+	static BufferedImage SAVED; //슬라이더 전용...ㅠㅠ 중간세이브 흑흑.. 
 	static BufferedImage EDITED; //편집본 
 	
 	static int height; //세로길이
@@ -453,33 +453,20 @@ class Images {
 	
 	
 	static int[][][] inputIMG; //변경전 각 픽셀들의 rgb값 저장해둘 메모리공간
-	static int[][][] backUpIMG; //뒤로가기 실행을 위한 중간저장.. 
-	static int[][][] savedIMG; //중간과정 저장! 
-	static int[][][] outputIMG = new int[3][height][width];; //변경후 각 픽셀들의 rgb값 저장해둘 메모리공간 
+	static int[][][] outputIMG; //변경후 각 픽셀들의 rgb값 저장해둘 메모리공간 
 	
 	
 	
 	//원본버튼 추가하고 원본이랑 편집본 패널 추가하고.. 
 	public static void loadImage(File file) {
-		
-		//path는 파일파인더에서 잡아다가 넣어줄 파일경로임!! 이거가지고 띄워줘야대 
-		
-		/*
-		//원본 보여주는 버튼 추가 
-		ImageIcon icon = new ImageIcon("C:\\Java\\workspace\\winterProject4_imageProcessing\\originIcon.png");
-		JButton viewOrigin = new JButton(icon);
-		viewOrigin.setBackground(Color.WHITE);
-		viewOrigin.setBounds( 0, 0, 40, 40);
-		Main.tools.add(viewOrigin);
-		*/
-		
+
 		//버퍼이미지에 불러온 파일 저장 
 		try {
 			ORIGIN = ImageIO.read(file);
 			EDITED = ImageIO.read(file);
+			undoStack.push(EDITED);
 			
 		} catch (IOException e) {
-			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
 		
@@ -522,27 +509,12 @@ class Images {
 		Main.canvas.add(edited, "edited"); //edited 라는 이름의 카드로 캔버스에 삽입 
 		Main.up.show(Main.canvas, "edited");
 		
-		/*
-		//버튼 누르고있는 동안만 원본 사진 보이게 하기 
-		viewOrigin.addMouseListener(new MouseAdapter(){
-			
-			public void mousePressed(MouseEvent e) { 
-				Main.up.show(Main.canvas, "origin"); //원본사진 패널이 위로가게
-	        }
-			public void mouseReleased(MouseEvent e) { 
-				Main.up.show(Main.canvas, "edited"); //편집중사진 패널이 위로가게 
-	        }
-			
-		});
-		*/
-		
-		getMemories(); //원본사진의 각 픽셀 정보 추출하여 inputIMG 메모리에 넣기 
-		
-		
 	}
 	
 	//밝기조절!! 
 	public static void changeBrightness(int std) {
+		
+		getMemories(SAVED);
 		
 		//원본에서 밝기처리한 내용 새 메모리에 저장 
 		outputIMG = new int[3][height][width]; //공간만들고.. 
@@ -552,10 +524,9 @@ class Images {
 				for(int j = 0; j < width; j++) {
 					
 					//원본의..뭐시깽이를 가져다가 
-					int value = savedIMG[RGB][i][j];
+					int value = inputIMG[RGB][i][j];
 					
 					value += std*2;
-					
 					
 					if(value >= 255) {
 						value = 255;
@@ -576,7 +547,7 @@ class Images {
 	//명암대비 조절!!
 	public static void changeContrast(int std) {
 		
-		
+		getMemories(SAVED);
 		//원본에서 밝기처리한 내용 새 메모리에 저장 
 		outputIMG = new int[3][height][width]; //공간만들고.. 
 	
@@ -585,7 +556,7 @@ class Images {
 				for(int j = 0; j < width; j++) {
 					
 					//원본의..뭐시깽이를 가져다가 
-					int value = savedIMG[RGB][i][j];
+					int value = inputIMG[RGB][i][j];
 					
 					//0이면 변화없고
 					if(std == 0) {
@@ -594,6 +565,7 @@ class Images {
 					
 					//양수면 각 rgb값 강조
 					if(std > 0) {
+						
 						
 						if(value <127) {
 							value -= std;
@@ -610,7 +582,7 @@ class Images {
 					//음수면 각 rgb값을 127(회색)에 가깝게 조정 
 					}else {
 						
-						float STD = 1 - ((float)Math.abs(std)/100); //원본을 가지고갈..비율..?
+						float STD = 1 - ((float)Math.abs(std)/200); //원본을 가지고갈..비율..?
 						
 						if(value <127) {
 							value = (int) (127 - ((127 - value) * STD));
@@ -632,6 +604,8 @@ class Images {
 	
 	//채도조절??
 	public static void changeSaturation(int std) {
+		
+		getMemories(SAVED);
 		outputIMG = new int[3][height][width]; //공간만들고.. 
 		
 		//인풋메모리 참조, 기준 따라 변형하여 아웃풋메모리에 넣기 
@@ -639,15 +613,14 @@ class Images {
 			for(int j = 0; j < width; j++) {
 				
 				//현재픽셀의 rgb 추출하여
-				int R = savedIMG[0][i][j]; //red 
-				int G = savedIMG[1][i][j]; //green
-				int B = savedIMG[2][i][j]; //blue
+				int R = inputIMG[0][i][j]; //red 
+				int G = inputIMG[1][i][j]; //green
+				int B = inputIMG[2][i][j]; //blue
 				
 				float[] HSB = Color.RGBtoHSB(R, G, B, null);
 				
 				if(std == 0) return;
 				float S;
-				
 				float STD= (Math.abs(std)+20)/20;
 				
 				
@@ -680,11 +653,10 @@ class Images {
 		
 	}
 	
-	
-	
-	
 	//흑백처리 
 	public static void changeToMono() {
+		getMemories(EDITED);
+		
 		outputIMG = new int[3][height][width]; //공간만들고.. 
 		
 		//인풋메모리 참조, 기준 따라 변형하여 아웃풋메모리에 넣기 
@@ -692,20 +664,14 @@ class Images {
 			for(int j = 0; j < width; j++) {
 				
 				//현재픽셀의 rgb 추출하여
-				int R = savedIMG[0][i][j]; //red 
-				int G = savedIMG[1][i][j]; //green
-				int B = savedIMG[2][i][j]; //blue
+				int R = inputIMG[0][i][j]; //red 
+				int G = inputIMG[1][i][j]; //green
+				int B = inputIMG[2][i][j]; //blue
 				
-				//기준에 따라 변환(해당픽셀의 rgb값을 127기준으로 양극화)
+				//해당픽셀의 rgb값을 세값의 평균을 구하여
 				int RGB = (int)((R+G+B)/3); 
-				
-				//if(RGB > 127) {
-				//	RGB = 0;
-				//}else {
-				//	RGB = 255;
-				//}
-				
-				//흑 또는 백으로... 변환한 값 넣어주기 
+
+				//변환한 동일한 값 rgb에 넣어주기 
 				outputIMG[0][i][j] = RGB; //red
 				outputIMG[1][i][j] = RGB; //green
 				outputIMG[2][i][j] = RGB; //blue
@@ -719,43 +685,39 @@ class Images {
 	
 	//색반전
 	public static void changeToRevers() {
+		getMemories(EDITED);
 		outputIMG = new int[3][height][width]; //공간만들고.. 
 		
 		//인풋메모리 참조, 기준 따라 변형하여 아웃풋메모리에 넣기 
 		for(int RGB = 0; RGB < 3; RGB++) {
 			for(int i = 0; i < height; i++) {
 				for(int j = 0; j < width; j++) {
-					outputIMG[RGB][i][j] = 255 - savedIMG[RGB][i][j];
+					outputIMG[RGB][i][j] = 255 - inputIMG[RGB][i][j];
 				}
 			}
 		}
-		
 		//편집중 버퍼이미지에 반영하기 
 		editIMG();
 		
 	}
 	
 
-	
-	
-	//(범용) 최초, 원본이미지 분해해서 메모리에 저장
-	public static void getMemories() {
+	//(범용) 최초, 인자로 들어온 버퍼이미지 분해해서 메모리(inputIMG)에 저장
+	public static void getMemories(BufferedImage B) {
 		//원본이미지 값 저장? 
 		inputIMG = new int[3][height][width]; //메모리할당
+		
 		for(int i = 0; i < height; i++) {
 			for(int j = 0; j < width; j++) {
-				int RGB = ORIGIN.getRGB(i, j); //해당 픽셀의 rgb값 얻어와서
+				int RGB = B.getRGB(i, j); //해당 픽셀의 rgb값 얻어와서
 				inputIMG[0][i][j] = (RGB >> 16)& 0xFF; //red
 				inputIMG[1][i][j] = (RGB >> 8)& 0xFF; //green
 				inputIMG[2][i][j] = (RGB)& 0xFF; //blue
 			}
 		}
-		outputIMG = inputIMG;
-		savedIMG = inputIMG;
-		
 	}
 
-	//(범용)편집중이미지에다가 메모리에 저장된 내용 반영
+	//(범용)EDITED에다가 메모리(inputIMG)에 저장된 내용 반영
 	public static void editIMG() {
 		//변환한 메모리 적용
 		for(int i = 0; i < height; i++) {
@@ -773,18 +735,65 @@ class Images {
 				EDITED.setRGB(i, j, px);
 			}
 		}
+		F5();
+		
+	}
+	
+	//(범용) 라벨 새로고침. 현재시점 EDITED 적용이라고 볼 수 있음
+	public static void F5() {
 		e = new JLabel(new ImageIcon(EDITED));
 		//야매 F5
 		Main.up.show(Main.canvas, "origin");
 		Main.up.show(Main.canvas, "edited");
-		
-	}
-	
-	// (범용) 중간저장하기
-	public static void apply() {
-		savedIMG = outputIMG;
 	}
 
+	//백업하기! 
+	public static void backUp() {
+		undoStack.push(copy(EDITED));
+		//System.out.println("백업됨. 현재 undo Stack 크기"+undoStack.size());
+	}
+	
+	//(범용) 되돌리기
+	public static void undo() {
+		if(undoStack.size() != 1) {
+			redoStack.push(copy(undoStack.peek())); //현 최신본을 redo스택에 저장하고
+			
+			Images.getMemories(undoStack.peek());
+			Images.outputIMG = Images.inputIMG;
+			Images.editIMG();
+			
+			undoStack.pop(); //퉤
+			
+			//System.out.println("뒤로가짐. 현재 undo Stack 크기"+undoStack.size());
+		}else {
+			Images.getMemories(ORIGIN);
+			Images.outputIMG = Images.inputIMG;
+			Images.editIMG();
+			
+		}
+	}
+	
+	//(범용) 앞으로가기 
+	public static void redo() {
+		undoStack.push(copy(redoStack.peek())); //그놈을 undo스택에도 저장하고
+		
+		Images.getMemories(redoStack.peek());
+		Images.outputIMG = Images.inputIMG;
+		Images.editIMG();
+		
+		redoStack.pop(); //퉤
+		
+		//System.out.println("다시실행됨. 현재 redo Stack 크기"+undoStack.size());
+	}
+	
+	public static BufferedImage copy(BufferedImage bi) {
+		
+		 ColorModel cm = bi.getColorModel();
+		 boolean isAlphaPremultiplied = cm.isAlphaPremultiplied();
+		 WritableRaster raster = bi.copyData(null);
+		 return new BufferedImage(cm, raster, isAlphaPremultiplied, null);
+		 
+		}
 	
 }
 
